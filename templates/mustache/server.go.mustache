@@ -1,0 +1,18 @@
+package main
+
+import (
+	"github.com/murz/ego"
+	"github.com/murz/ego/http"
+	"{{ Name }}/app/controllers"
+	"{{ Name }}/conf"
+	"reflect"
+)
+
+func main() {
+	{{#Actions}}
+	http.RegisterAction("{{ Controller }}.{{ Name }}", reflect.TypeOf(controllers.{{ Controller }}{}))
+	{{/Actions}}
+	conf.Routes()
+	var s = ego.NewServer("{{ Name }}")
+	s.Run()
+}

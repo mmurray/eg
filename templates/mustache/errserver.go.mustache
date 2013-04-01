@@ -1,0 +1,36 @@
+package main
+
+import (
+	"net/http"
+	"io"
+)
+
+var errorPage = `<!doctype html>
+<html>
+<head>
+<title>Compilation error - ego</title>
+<style type="text/css">
+body {margin:0;padding:0;font-family:"Helvetica Neue",Helvetica,Arial,sans-serif;}
+h1,h2,h3 {margin:0;padding:20px;}
+h1 {background:#eee;color:#666;}
+h2 {background:#d83600;color:#fff}
+h3 {color:#222;}
+ol {font-size:16px;padding:0 0 0 50px;margin: 0;}
+.err {color: #d83600;background:#ffd3c4;}
+</style>
+</head>
+<body>
+<h1>Compilation error</h1>
+<h2>{{Message}}</h2>
+<h3>In {{Filename}} at line {{Line}}:</h3>
+<pre>{{{Code}}}</pre>
+</body>
+</html>
+`
+
+func main() {
+	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+		io.WriteString(w, errorPage)
+	})
+	http.ListenAndServe("{{Port}}", nil)
+}
