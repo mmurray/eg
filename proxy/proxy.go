@@ -21,12 +21,14 @@ import (
   "github.com/hoisie/mustache"
   "eg/templates"
   "eg/inspector"
+  "bytes"
+  "regexp"
 )
 
 type Proxy struct {
   dir string
   binPath string
-  cmd *exec.Cmd
+  cmd []*exec.Cmd
   ln net.Listener
   conn net.Conn
 }
@@ -44,8 +46,10 @@ func Run() {
 }
 
 func (p *Proxy) initialize() {
-
+  p.cmd = make([]*exec.Cmd, 0)
 }
+
+var errRegexp, _ = regexp.Compile("(.+go):([0-9]+):[0-9]{0,}:? (.+)")
 
 func checkErr(err error) {
   if err != nil {
@@ -71,40 +75,70 @@ func watchAll(watcher *fsnotify.Watcher, dirname string) {
   }
 }
 
-func (p *Proxy) compile() {
+func (p *Proxy) handleErr(err string) {
+  log.Printf("ERRRRRR: %v", err)
+    
+    if errRegexp.MatchString(err) {
+      pieces := errRegexp.FindStringSubmatch(err)
+      log.Printf("%v", pieces)
+      p.startErr(&ErrorHandler{
+        Filename: pieces[1],
+        Message: pieces[3],
+        Line: pieces[2],
+      })
+    } else {
+      fmt.Println("starting err..")
+      p.startErr(&ErrorHandler{
+        Filename: "",
+        Message: err,
+        Line: "",
+      })
+    }
+}
+
+func (p *Proxy) compile() bool {
   
   defer func() {
-    fmt.Println("recover")
       if r := recover(); r != nil {
-        isErr = true
+        fmt.Println("recover COMPILE")
         fmt.Println("recover %v", r)
-          pieces := strings.Split(fmt.Sprintf("%v", r), ":")
-          p.stop()
-          p.startErr(&ErrorHandler{
-            Filename: pieces[0],
-            Message: pieces[3],
-            Line: pieces[1],
-          })
+          p.handleErr(fmt.Sprintf("%v", r))
       }
   }()
 
   log.Printf("compiling to: %v", p.binPath)
   log.Printf("go build -o %s %s", p.binPath, p.dir + "/server.go")
   cmd := exec.Command("go", "build", "-o", p.binPath, p.dir + "/server.go")
+  log.Printf("AFTER EXEC COMMAND???")
+  var buf bytes.Buffer
   stdout, err := cmd.StdoutPipe()
   checkErr(err)
-  stderr, err := cmd.StderrPipe()
-  checkErr(err)
-  go io.Copy(os.Stdout, stdout)
-  go io.Copy(os.Stderr, stderr)
-  fmt.Print("start err")
+  go io.Copy(&buf, stdout)
+  // go io.Copy(os.Stderr, stderr)
+  
   err = cmd.Start()
   checkErr(err)
+
   // log.Printf("removing... %s", p.dir)
   // os.RemoveAll(p.dir)
+  log.Printf("waitin..")
   err = cmd.Wait()
-  
-  checkErr(err)
+  if err != nil {
+    lines := strings.Split(buf.String(), "\n")
+    if len(lines) >= 2 {
+      p.handleErr(fmt.Sprintf("%v", lines[1]))
+      return false
+    }
+  }
+  log.Printf("compilllle err: %v", err)
+  return true
+  // if err != nil {
+  //   p.startErr(&ErrorHandler{
+  //     Filename: "",
+  //     Message: "BLAH!",
+  //     Line: "",
+  //   })
+  // }
     
 }
 
@@ -153,6 +187,7 @@ func (p *Proxy) setupErrDir(e *ErrorHandler) {
     "Port": ":5000",
   })
   serverFile, _ := os.Create(root+"/server.go")
+  log.Printf("writing: %v", server)
   serverFile.Write([]byte(server))
 
   p.dir = path.Join(wd, root);
@@ -174,6 +209,7 @@ func (p *Proxy) setupDir() {
     "Actions": inspector.GetActions(), 
   })
   serverFile, _ := os.Create(root+"/server.go")
+  log.Printf("writing: %v", server)
   serverFile.Write([]byte(server))
   
 
@@ -187,70 +223,81 @@ type ErrorHandler struct {
   Line string
 }
 
-var isErr = false
-
 func (p *Proxy) startErr(e *ErrorHandler) {
+  p.stop()
   fmt.Println("starting err!")
   p.setupErrDir(e)
-  p.compile()
+  ok := p.compile()
+  if !ok {
+    fmt.Printf("NOT OK")
+    return
+  }
   log.Printf("running...")
   cmd := exec.Command(p.binPath, "-dev=true", fmt.Sprintf("-port=%v", /*p.flags["port"]*/ 5000))
-  p.cmd = cmd
-  stdout, err := p.cmd.StdoutPipe()
+  fmt.Printf("STARTING ERR: %v", cmd)
+  p.cmd = append(p.cmd, cmd)
+  fmt.Printf("APPENDING.. %v", len(p.cmd))
+  stdout, err := cmd.StdoutPipe()
   checkErr(err)
-  stderr, err := p.cmd.StderrPipe()
+  stderr, err := cmd.StderrPipe()
   checkErr(err)
   go io.Copy(os.Stdout, stdout)
   go io.Copy(os.Stderr, stderr)
   fmt.Print("start err")
-  err = p.cmd.Start()
+  err = cmd.Start()
   checkErr(err)
   // log.Printf("removing... %s", p.dir)
   // os.RemoveAll(p.dir)
-  err = p.cmd.Wait()
+  err = cmd.Wait()
 
 }
 
 func (p *Proxy) start() {
+  p.stop()
   fmt.Println("starting!!...")
   defer func() {
-    fmt.Println("recover")
       if r := recover(); r != nil {
-        isErr = true
-        fmt.Println("recover %v", r)
-          pieces := strings.Split(fmt.Sprintf("%v", r), ":")
-          p.stop()
-          p.startErr(&ErrorHandler{
-            Filename: pieces[0],
-            Message: pieces[3],
-            Line: pieces[1],
-          })
+        fmt.Println("recover START")
+        p.handleErr(fmt.Sprintf("%v", r))
       }
   }()
+  inspector.InitActions()
   inspector.Inspect()
   p.setupDir()
-  p.compile()
+  ok := p.compile()
+  if !ok {
+    fmt.Printf("NOT OK")
+    return
+  }
   log.Printf("running...")
   cmd := exec.Command(p.binPath, "-dev=true", fmt.Sprintf("-port=%v", /*p.flags["port"]*/ 5000))
-  p.cmd = cmd
-  stdout, err := p.cmd.StdoutPipe()
+  p.cmd = append(p.cmd, cmd)
+  fmt.Printf("APPENDING... %v (from start)", len(p.cmd))
+  stdout, err := cmd.StdoutPipe()
   checkErr(err)
-  stderr, err := p.cmd.StderrPipe()
+  stderr, err := cmd.StderrPipe()
   checkErr(err)
   go io.Copy(os.Stdout, stdout)
   go io.Copy(os.Stderr, stderr)
   fmt.Print("start dev")
-  err = p.cmd.Start()
+  err = cmd.Start()
+  if (err != nil) {
+    log.Printf("err: %v", err)
+  }
   checkErr(err)
   // log.Printf("removing... %s", p.dir)
   // os.RemoveAll(p.dir)
-  err = p.cmd.Wait()
+  err = cmd.Wait()
 }
 
 func (p *Proxy) stop() {
   fmt.Println("killin..")
-  if (p.cmd != nil) {
-    p.cmd.Process.Kill()
+  log.Printf("%v", len(p.cmd))
+  if len(p.cmd) > 0 {
+    for _, cmd := range p.cmd {
+      cmd.Process.Kill()
+    }
+    p.cmd = make([]*exec.Cmd, 0)
   }
     fmt.Println("after killin dev")
 }
@@ -260,26 +307,26 @@ func (p *Proxy) run() {
   go p.start()
 
   watcher, err := fsnotify.NewWatcher()
-    checkErr(err)
-    err = watcher.Watch(".")
-    checkErr(err)
-    watchAll(watcher, "app")
-    watchAll(watcher, "conf")
-    // watchAll(watcher, ".")
+  checkErr(err)
+  err = watcher.Watch(".")
+  checkErr(err)
+  watchAll(watcher, "app")
+  watchAll(watcher, "conf")
+  // watchAll(watcher, ".")
 
-    for {
-        select {
-        case evt := <-watcher.Event:
-          if evt.Name != ".egoserver" {
-            log.Print("EVENT!!!")
-              p.stop()
-              fmt.Println("restartin")
-              go p.start()
-          }
-        case err := <-watcher.Error:
-            log.Println("error:", err)
+  for {
+      select {
+      case evt := <-watcher.Event:
+        if evt.Name != ".egoserver" {
+          log.Print("EVENT!!!")
+            p.stop()
+            fmt.Println("restartin")
+            go p.start()
         }
-    }
+      case err := <-watcher.Error:
+          log.Println("error:", err)
+      }
+  }
 }
  
 func (p *Proxy) Run() {
@@ -296,7 +343,6 @@ func (p *Proxy) Run() {
  
   log.Println("Server started")
   if err = http.ListenAndServe(":8080", nil); err != nil {
-    fmt.Println("fooey")
     log.Fatal(err)
   }
 }

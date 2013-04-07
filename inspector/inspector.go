@@ -23,12 +23,14 @@ type Action struct {
   Name string
 }
 
-var app = &App{
-  Actions: make([]*Action, 0),
-}
+var app = &App{}
 
 func GetActions() []*Action {
   return app.Actions
+}
+
+func InitActions() {
+  app.Actions = make([]*Action, 0)
 }
 
 func Inspect() {
