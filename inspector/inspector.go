@@ -21,6 +21,17 @@ type App struct {
 type Action struct {
   Controller string
   Name string
+  ContextKeys []ContextKey
+  Fields []Field
+}
+
+type ContextKey struct {
+  Value string
+}
+
+type Field struct {
+  Key string
+  Value string
 }
 
 var app = &App{}
@@ -59,16 +70,66 @@ func inspectFile(filename string) {
     panic(err)
   }
 
+  txt, _ := ioutil.ReadFile(filename)
+
   // Inspect the AST for public exported methods of the controller.
   ast.Inspect(f, func(n ast.Node) bool {
     switch x := n.(type) {
     case *ast.FuncDecl:
       if x.Recv != nil {
         if fmt.Sprintf("%v", x.Recv.List[0].Type) == ctrlName {
-          app.Actions = append(app.Actions, &Action{
+          a := &Action{
             Controller: ctrlName,
             Name: x.Name.Name,
-          })
+          }
+
+          a.Fields = make([]Field, 0)
+          if len(x.Type.Params.List) > 0 {
+            for _, obj := range x.Type.Params.List {
+              a.Fields = append(a.Fields, Field{
+                Key: fmt.Sprintf("%v", obj.Names[0]),
+                Value: fmt.Sprintf("%v", obj.Type),
+              })
+            }
+          }
+
+          log.Printf("FIELD!: %v", a.Fields)
+
+          rx, _ := regexp.Compile(fmt.Sprintf("%s[\\w\\W]*?http\\.Context{([a-zA-Z0-9, ]+)}", x.Name.Name))
+          wrx, _ := regexp.Compile(fmt.Sprintf("%s[\\w\\W]*?http\\.Context{([a-zA-Z0-9, \\W]+?)}", x.Name.Name))
+          ctxs := rx.FindAllStringSubmatch(string(txt), -1)
+          if len(ctxs) > 0 {
+            log.Printf("first worked!!")
+            if len(ctxs[0]) > 1 {
+              str := strings.Split(ctxs[0][1], ",")
+              a.ContextKeys = make([]ContextKey, 0)
+              for _, val := range str {
+                a.ContextKeys = append(a.ContextKeys, ContextKey{
+                  Value: strings.Trim(val, " "),
+                })
+              }
+            }
+          }
+
+          if (a.ContextKeys == nil) {
+            wctxs := wrx.FindAllStringSubmatch(string(txt), -1)
+            if len(wctxs) > 0 {
+              if len(wctxs[0]) > 1 {
+                str := strings.Split(wctxs[0][1], ",\n")
+                str = str[0:len(str) - 1]
+                log.Printf("SECOND WORKED!!!! %v", str)
+                a.ContextKeys = make([]ContextKey, 0)
+                for _, val := range str {
+                  a.ContextKeys = append(a.ContextKeys, ContextKey{
+                    Value: strings.Trim(val, "\n\t ,"),
+                  })
+                }
+              }
+            }
+          }
+
+          log.Printf("CONTEXT KEYS: %v", a)
+          app.Actions = append(app.Actions, a)
         }
       }
     }

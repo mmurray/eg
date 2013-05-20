@@ -10,9 +10,18 @@ import (
 
 func main() {
 	{{#Actions}}
-	http.RegisterAction("{{ Controller }}.{{ Name }}", reflect.TypeOf(controllers.{{ Controller }}{}))
+	http.RegisterAction("{{ Controller }}.{{ Name }}", reflect.TypeOf(controllers.{{ Controller }}{}), []string{
+		{{#ContextKeys}}
+			"{{ Value }}",
+		{{/ContextKeys}}
+	}, map[string]string{
+		{{#Fields}}
+			"{{ Key }}": "{{ Value }}",
+		{{/Fields}}
+	})
 	{{/Actions}}
 	conf.Routes()
+	conf.Databases()
 	var s = ego.NewServer("{{ Name }}")
 	s.Run()
 }

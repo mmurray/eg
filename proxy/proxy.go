@@ -206,7 +206,7 @@ func (p *Proxy) setupDir() {
 
   server := mustache.Render(string(templates.Server()), map[string]interface{} {
     "Name": curDir,
-    "Actions": inspector.GetActions(), 
+    "Actions": inspector.GetActions(),
   })
   serverFile, _ := os.Create(root+"/server.go")
   log.Printf("writing: %v", server)
