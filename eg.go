@@ -12,8 +12,8 @@ import (
 	"io/ioutil"
 	"regexp"
 	"fmt"
-	"eg/proxy"
-	"eg/templates"
+	"github.com/murz/eg/proxy"
+	"github.com/murz/eg/templates"
 )
 
 func main() {
@@ -97,13 +97,13 @@ func newApp(args []string) {
 	os.Mkdir(name+"/conf", 0777)
 	os.Mkdir(name+"/public", 0777)
 
-	dbconf := mustache.Render(string(db_json_mustache()), map[string]string {})
-	dbconfFile, _ := os.Create(name+"/conf/db.json")
-	dbconfFile.Write([]byte(dbconf))
+        routesconf := mustache.Render(string(templates.Routes()), map[string]string{})
+        routesconfFile, _ := os.Create(name+"/conf/routes.go")
+        routesconfFile.Write([]byte(routesconf))
 
-	appconf := mustache.Render(string(app_json_mustache()), map[string]string {})
-	appconfFile, _ := os.Create(name+"/conf/app.json")
-	appconfFile.Write([]byte(appconf))
+        dbconf := mustache.Render(string(templates.Databases()), map[string]string{})
+        dbconfFile, _ := os.Create(name+"/conf/db.go")
+        dbconfFile.Write([]byte(dbconf))
 
 	error404view := mustache.Render(string(error_html_mustache()), map[string]string {
 		"Message": "404 Not Found",
@@ -116,12 +116,6 @@ func newApp(args []string) {
 	})
 	error501viewFile, _ := os.Create(name+"/app/views/errors/501.html")
 	error501viewFile.Write([]byte(error501view))
-
-	server := mustache.Render(string(server_go_mustache()), map[string]string {
-		"Name": name,
-	})
-	serverFile, _ := os.Create(name+"/server.go")
-	serverFile.Write([]byte(server))
 
 	log.Printf("Your new ego application, '%v', was successfully created", args[0])
 }

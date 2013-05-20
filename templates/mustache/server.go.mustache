@@ -2,10 +2,12 @@ package main
 
 import (
 	"github.com/murz/ego"
+        {{#HasActions}}
 	"github.com/murz/ego/http"
-	"{{ Name }}/app/controllers"
-	"{{ Name }}/conf"
 	"reflect"
+	"{{ Name }}/app/controllers"
+        {{/HasActions}}
+	"{{ Name }}/conf"
 )
 
 func main() {

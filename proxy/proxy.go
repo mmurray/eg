@@ -19,8 +19,8 @@ import (
   "io/ioutil"
   "github.com/howeyc/fsnotify"
   "github.com/hoisie/mustache"
-  "eg/templates"
-  "eg/inspector"
+  "github.com/murz/eg/templates"
+  "github.com/murz/eg/inspector"
   "bytes"
   "regexp"
 )
@@ -207,6 +207,7 @@ func (p *Proxy) setupDir() {
   server := mustache.Render(string(templates.Server()), map[string]interface{} {
     "Name": curDir,
     "Actions": inspector.GetActions(),
+    "HasActions": (len(inspector.GetActions()) > 0),
   })
   serverFile, _ := os.Create(root+"/server.go")
   log.Printf("writing: %v", server)
@@ -342,7 +343,7 @@ func (p *Proxy) Run() {
   http.Handle("/", reverse_proxy)
  
   log.Println("Server started")
-  if err = http.ListenAndServe(":8080", nil); err != nil {
+  if err = http.ListenAndServe(":5050", nil); err != nil {
     log.Fatal(err)
   }
 }
