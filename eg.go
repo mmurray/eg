@@ -90,20 +90,22 @@ func newApp(args []string) {
 	os.Mkdir(name+"/app/controllers", 0777)
 	os.Mkdir(name+"/app/helpers", 0777)
 	os.Mkdir(name+"/app/models", 0777)
-	os.Mkdir(name+"/app/scripts", 0777)
-	os.Mkdir(name+"/app/styles", 0777)
 	os.Mkdir(name+"/app/views", 0777)
 	os.Mkdir(name+"/app/views/errors", 0777)
+	os.Mkdir(name+"/app/assets", 0777)
+	os.Mkdir(name+"/app/scripts", 0777)
+	os.Mkdir(name+"/app/styles", 0777)
+	os.Mkdir(name+"/app/images", 0777)
 	os.Mkdir(name+"/conf", 0777)
 	os.Mkdir(name+"/public", 0777)
 
-        routesconf := mustache.Render(string(templates.Routes()), map[string]string{})
-        routesconfFile, _ := os.Create(name+"/conf/routes.go")
-        routesconfFile.Write([]byte(routesconf))
+    routesconf := mustache.Render(string(templates.Routes()), map[string]string{})
+    routesconfFile, _ := os.Create(name+"/conf/routes.go")
+    routesconfFile.Write([]byte(routesconf))
 
-        dbconf := mustache.Render(string(templates.Databases()), map[string]string{})
-        dbconfFile, _ := os.Create(name+"/conf/db.go")
-        dbconfFile.Write([]byte(dbconf))
+    dbconf := mustache.Render(string(templates.Databases()), map[string]string{})
+    dbconfFile, _ := os.Create(name+"/conf/db.go")
+    dbconfFile.Write([]byte(dbconf))
 
 	error404view := mustache.Render(string(error_html_mustache()), map[string]string {
 		"Message": "404 Not Found",
