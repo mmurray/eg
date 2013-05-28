@@ -93,9 +93,9 @@ func newApp(args []string) {
 	os.Mkdir(name+"/app/views", 0777)
 	os.Mkdir(name+"/app/views/errors", 0777)
 	os.Mkdir(name+"/app/assets", 0777)
-	os.Mkdir(name+"/app/scripts", 0777)
-	os.Mkdir(name+"/app/styles", 0777)
-	os.Mkdir(name+"/app/images", 0777)
+	os.Mkdir(name+"/app/assets/javascripts", 0777)
+	os.Mkdir(name+"/app/assets/stylesheets", 0777)
+	os.Mkdir(name+"/app/assets/images", 0777)
 	os.Mkdir(name+"/conf", 0777)
 	os.Mkdir(name+"/public", 0777)
 
