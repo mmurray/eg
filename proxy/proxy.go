@@ -60,6 +60,7 @@ func checkErr(err error) {
 }
 
 func watchAll(watcher *fsnotify.Watcher, dirname string) {
+//  watcher.Watch(dirname)
   dirlist, err := ioutil.ReadDir(dirname)
   if err != nil {
     log.Fatalf("Error reading %s: %s\n", dirname, err)
@@ -77,7 +78,6 @@ func watchAll(watcher *fsnotify.Watcher, dirname string) {
 
 func (p *Proxy) handleErr(err string) {
   log.Printf("ERRRRRR: %v", err)
-    
     if errRegexp.MatchString(err) {
       pieces := errRegexp.FindStringSubmatch(err)
       log.Printf("%v", pieces)
@@ -130,7 +130,6 @@ func (p *Proxy) compile() bool {
       return false
     }
   }
-  log.Printf("compilllle err: %v", err)
   return true
   // if err != nil {
   //   p.startErr(&ErrorHandler{
@@ -309,27 +308,43 @@ func (p *Proxy) run() {
 
   watcher, err := fsnotify.NewWatcher()
   checkErr(err)
-  err = watcher.Watch(".")
-  checkErr(err)
-  watchAll(watcher, "app")
-  watchAll(watcher, "conf")
+//  err = watcher.Watch(".")
+//  checkErr(err)
+  fmt.Println("watching")
+  /*watchAll(watcher, "app/assets/javascripts")
+  watchAll(watcher, "app/assets/stylesheets")
+  watchAll(watcher, "app/assets/images")
+  watchAll(watcher, "app/controllers")
+  watchAll(watcher, "conf")*/
   // watchAll(watcher, ".")
+
+  watcher.Watch("app/assets/javascripts")
+  watcher.Watch("app/assets/stylesheets")
+  watcher.Watch("app/assets/images")
+  watcher.Watch("app/controllers")
+  watcher.Watch("conf")
 
   for {
       select {
       case evt := <-watcher.Event:
-        if evt.Name != ".egoserver" {
+        if strings.HasPrefix(evt.Name, "app/assets") {
+          if strings.HasSuffix(evt.Name, ".js") {
+            fmt.Println("evt: ", evt.String())
+            fmt.Println("should recompile: ", evt.Name)
+          }
+        } else {
+          // Restart
           log.Print("EVENT!!!")
-            p.stop()
-            fmt.Println("restartin")
-            go p.start()
+          p.stop()
+          fmt.Println("restartin")
+          go p.start()
         }
       case err := <-watcher.Error:
           log.Println("error:", err)
       }
   }
 }
- 
+
 func (p *Proxy) Run() {
 
   go p.run()
@@ -338,10 +353,10 @@ func (p *Proxy) Run() {
   if err != nil {
     log.Fatal(err)
   }
- 
+
   reverse_proxy := httputil.NewSingleHostReverseProxy(u)
   http.Handle("/", reverse_proxy)
- 
+
   log.Println("Server started")
   if err = http.ListenAndServe(":5050", nil); err != nil {
     log.Fatal(err)
